@@ -26,9 +26,9 @@ Future<void> main() async {
 /// are type-safe.
 final moviesRef = FirebaseFirestore.instance
     .collection('firestore-example-app')
-    .withConverter<Movie>(
-      fromFirestore: (snapshots, _) => Movie.fromJson(snapshots.data()!),
-      toFirestore: (movie, _) => movie.toJson(),
+    .withConverter<Movie?>(
+      fromFirestore: (snapshots, _) => null,
+      toFirestore: (movie, _) => {},
     );
 
 /// The different ways that we can filter/sort movies.
@@ -41,9 +41,9 @@ enum MovieQuery {
   fantasy,
 }
 
-extension on Query<Movie> {
+extension on Query<Movie?> {
   /// Create a firebase query from a [MovieQuery]
-  Query<Movie> queryBy(MovieQuery query) {
+  Query<Movie?> queryBy(MovieQuery query) {
     switch (query) {
       case MovieQuery.fantasy:
         return where('genre', arrayContainsAny: ['Fantasy']);
@@ -160,7 +160,7 @@ class _FilmListState extends State<FilmList> {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot<Movie>>(
+      body: StreamBuilder<QuerySnapshot<Movie?>>(
         stream: moviesRef.queryBy(query).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -204,14 +204,14 @@ class _FilmListState extends State<FilmList> {
 class _MovieItem extends StatelessWidget {
   _MovieItem(this.movie, this.reference);
 
-  final Movie movie;
-  final DocumentReference<Movie> reference;
+  final Movie? movie;
+  final DocumentReference<Movie?> reference;
 
   /// Returns the movie poster.
   Widget get poster {
     return SizedBox(
       width: 100,
-      child: Image.network(movie.poster),
+      child: Image.network(movie?.poster ?? ''),
     );
   }
 
@@ -227,7 +227,7 @@ class _MovieItem extends StatelessWidget {
           genres,
           Likes(
             reference: reference,
-            currentLikes: movie.likes,
+            currentLikes: movie?.likes,
           )
         ],
       ),
@@ -237,7 +237,7 @@ class _MovieItem extends StatelessWidget {
   /// Return the movie title.
   Widget get title {
     return Text(
-      '${movie.title} (${movie.year})',
+      '${movie?.title} (${movie?.year})',
       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
     );
   }
@@ -251,9 +251,9 @@ class _MovieItem extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: Text('Rated: ${movie.rated}'),
+            child: Text('Rated: ${movie?.rated}'),
           ),
-          Text('Runtime: ${movie.runtime}'),
+          Text('Runtime: ${movie?.runtime}'),
         ],
       ),
     );
@@ -262,7 +262,7 @@ class _MovieItem extends StatelessWidget {
   /// Returns a list of genre movie tags.
   List<Widget> get genreItems {
     return [
-      for (final genre in movie.genre)
+      for (final genre in movie?.genre ?? [])
         Padding(
           padding: const EdgeInsets.only(right: 2),
           child: Chip(
@@ -312,10 +312,10 @@ class Likes extends StatefulWidget {
   }) : super(key: key);
 
   /// The reference relating to the counter.
-  final DocumentReference<Movie> reference;
+  final DocumentReference<Movie?> reference;
 
   /// The number of current likes (before manipulation).
-  final int currentLikes;
+  final int? currentLikes;
 
   @override
   _LikesState createState() => _LikesState();
@@ -324,7 +324,7 @@ class Likes extends StatefulWidget {
 class _LikesState extends State<Likes> {
   /// A local cache of the current likes, used to immediately render the updated
   /// likes count after an update, even while the request isn't completed yet.
-  late int _likes = widget.currentLikes;
+  late int _likes = widget.currentLikes ?? 0;
 
   Future<void> _onLike() async {
     final currentLikes = _likes;
@@ -341,8 +341,8 @@ class _LikesState extends State<Likes> {
       // count on the server.
       int newLikes = await FirebaseFirestore.instance
           .runTransaction<int>((transaction) async {
-        DocumentSnapshot<Movie> movie =
-            await transaction.get<Movie>(widget.reference);
+        DocumentSnapshot<Movie?> movie =
+            await transaction.get<Movie?>(widget.reference);
 
         if (!movie.exists) {
           throw Exception('Document does not exist!');
@@ -371,7 +371,7 @@ class _LikesState extends State<Likes> {
     // keep things in sync. Otherwise if another user updates the likes,
     // we won't see the update.
     if (widget.currentLikes != oldWidget.currentLikes) {
-      _likes = widget.currentLikes;
+      _likes = widget.currentLikes ?? 0;
     }
   }
 
